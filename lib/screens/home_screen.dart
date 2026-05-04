@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:my_tasks_app/main.dart';
 import 'package:my_tasks_app/services/tasks_service.dart';
 import 'package:my_tasks_app/widgets/task_item.dart';
+import 'package:my_tasks_app/widgets/filter_buttons.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,87 +12,76 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String filtro = "todas";
   List<Map<String, Object>> tasks = [];
-  TextEditingController controller = TextEditingController();
+  final controller = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    loadTasks();
+    TasksService.load().then((t) => setState(() => tasks = t));
   }
 
-  void loadTasks() async {
-    tasks = await TasksService.load();
-    setState(() {});
+  void save() => TasksService.save(tasks);
+
+  void deleteTask(Map<String, Object> task) {
+    setState(() => tasks.remove(task));
+    save();
   }
 
-  void _showTaskDialog({int? index}) {
-    if (index != null) {
-      controller.text = tasks[index]["titulo"].toString();
-    }
+  void showDialogTask({int? i}) {
+    if (i != null) controller.text = tasks[i]["titulo"].toString();
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(index == null ? "Nueva Tarea" : "Editar tarea"),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              hintText: "Escribir tarea",
-              border: OutlineInputBorder(),
-            ),
+      builder: (_) => AlertDialog(
+        title: Text(i == null ? "Nueva Tarea" : "Editar"),
+        content: TextField(controller: controller),
+        actions: [
+          TextButton(
+            onPressed: () {
+              controller.clear();
+              Navigator.pop(context);
+            },
+            child: const Text("Cancelar"),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                controller.clear();
-                Navigator.pop(context);
-              },
-              child: const Text("Cancelar"),
-            ),
-            TextButton(
-              onPressed: () {
-                if (controller.text.trim().isEmpty) {
-                  Navigator.pop(context);
-                  return;
-                }
+          TextButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
 
-                setState(() {
-                  if (index == null) {
-                    tasks.add({
-                      "titulo": controller.text.trim(),
-                      "completada": false,
-                    });
-                  } else {
-                    tasks[index]["titulo"] = controller.text.trim();
-                  }
-                });
+              setState(() {
+                i == null
+                    ? tasks.add({"titulo": text, "completada": false})
+                    : tasks[i]["titulo"] = text;
+              });
 
-                TasksService.save(tasks);
-                controller.clear();
-                Navigator.pop(context);
-              },
-              child: const Text("Guardar"),
-            ),
-          ],
-        );
-      },
+              save();
+              controller.clear();
+              Navigator.pop(context);
+            },
+            child: const Text("Guardar"),
+          ),
+        ],
+      ),
     );
   }
 
-  void deleteTask(int index) {
-    setState(() {
-      tasks.removeAt(index);
-    });
-    TasksService.save(tasks);
+  List<Map<String, Object>> get lista {
+    if (filtro == "pendientes") {
+      return tasks.where((t) => !(t["completada"] as bool)).toList();
+    }
+    if (filtro == "completadas") {
+      return tasks.where((t) => (t["completada"] as bool)).toList();
+    }
+    return tasks;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Mis Tareas"),
+        title: Text("Mis Tareas (${tasks.length})"),
         centerTitle: true,
         actions: [
           IconButton(
@@ -100,49 +90,60 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? Icons.light_mode
                   : Icons.dark_mode,
             ),
-            onPressed: () {
-              MyApp.of(context)?.toggleTheme();
-            },
+            onPressed: () => MyApp.of(context)?.toggleTheme(),
           ),
         ],
       ),
-
-      body: Padding(
-        padding: const EdgeInsets.all(10), // 🔥 espacio general
-        child: tasks.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.task_alt, size: 60, color: Colors.grey),
-                    SizedBox(height: 10),
-                    Text(
-                      "No hay tareas",
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+      body: Column(
+        children: [
+          FilterButtons(
+            filtro: filtro,
+            onChange: (v) => setState(() => filtro = v),
+          ),
+          Expanded(
+            child: lista.isEmpty
+                ? const Center(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.task_alt, size: 60, color: Colors.grey),
+                          SizedBox(height: 10),
+                          Text(
+                            "No hay tareas",
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                itemCount: tasks.length,
-                itemBuilder: (context, index) {
-                  return TaskItem(
-                    task: tasks[index],
-                    onDelete: () => deleteTask(index),
-                    onEdit: () => _showTaskDialog(index: index),
-                    onChanged: (value) {
-                      setState(() {
-                        tasks[index]["completada"] = value!;
-                      });
-                      TasksService.save(tasks);
-                    },
-                  );
-                },
-              ),
-      ),
+                  )
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: ListView.builder(
+                      key: ValueKey(lista.length),
+                      itemCount: lista.length,
+                      itemBuilder: (context, index) {
+                        final task = lista[index];
 
+                        return TaskItem(
+                          task: task,
+                          onDelete: () => deleteTask(task),
+                          onEdit: () => showDialogTask(i: tasks.indexOf(task)),
+                          onChanged: (value) {
+                            setState(() {
+                              task["completada"] = value!;
+                            });
+                            save();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showTaskDialog(),
+        onPressed: () => showDialogTask(),
         child: const Icon(Icons.add),
       ),
     );
