@@ -1,30 +1,30 @@
+import 'dart:convert';
+import 'package:my_tasks_app/modesl/task_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TasksService {
+  static const String _storageKey = "tasks_json";
 
-  static Future<void> save(List<Map<String, Object>> tasks) async {
+  static Future<void> save(List<Task> tasks) async {
     final prefs = await SharedPreferences.getInstance();
-    final tasksString = tasks.map(_encodeTask).toList();
 
-    await prefs.setStringList("tasks", tasksString);
+    final String encodedData = jsonEncode(
+      tasks.map((t) => t.toJson()).toList(),
+    );
+    await prefs.setString(_storageKey, encodedData);
   }
 
-  static Future<List<Map<String, Object>>> load() async {
+  static Future<List<Task>> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedTasks = prefs.getStringList("tasks");
+    final String? savedTasks = prefs.getString(_storageKey);
 
     if (savedTasks == null) return [];
 
-    return savedTasks.map(_decodeTask).toList();
-  }
-
-  static String _encodeTask(Map<String, Object> task) {
-    return "${task["titulo"]}|${task["completada"]}";
-  }
-
-  static Map<String, Object> _decodeTask(String taskString) {
-    final parts = taskString.split("|");
-
-    return {"titulo": parts[0], "completada": parts[1] == "true"};
+    try {
+      final List<dynamic> decodedData = jsonDecode(savedTasks);
+      return decodedData.map((item) => Task.fromJson(item)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 }

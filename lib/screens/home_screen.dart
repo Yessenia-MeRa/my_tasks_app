@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_tasks_app/main.dart';
+import 'package:my_tasks_app/modesl/task_model.dart';
 import 'package:my_tasks_app/services/tasks_service.dart';
 import 'package:my_tasks_app/widgets/task_item.dart';
 import 'package:my_tasks_app/widgets/filter_buttons.dart';
@@ -13,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String filtro = "todas";
-  List<Map<String, Object>> tasks = [];
+  List<Task> tasks = [];
   final controller = TextEditingController();
 
   @override
@@ -24,19 +25,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void save() => TasksService.save(tasks);
 
-  void deleteTask(Map<String, Object> task) {
+  void deleteTask(Task task) {
     setState(() => tasks.remove(task));
     save();
   }
 
-  void showDialogTask({int? i}) {
-    if (i != null) controller.text = tasks[i]["titulo"].toString();
+  void showDialogTask({Task? taskToEdit}) {
+    if (taskToEdit != null) {
+      controller.text = taskToEdit.titulo;
+    } else {
+      controller.clear();
+    }
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(i == null ? "Nueva Tarea" : "Editar"),
-        content: TextField(controller: controller),
+        title: Text(taskToEdit == null ? "Nueva Tarea" : "Editar Tarea"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: "Escribe tu tarea..."),
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -51,9 +60,11 @@ class _HomeScreenState extends State<HomeScreen> {
               if (text.isEmpty) return;
 
               setState(() {
-                i == null
-                    ? tasks.add({"titulo": text, "completada": false})
-                    : tasks[i]["titulo"] = text;
+                if (taskToEdit == null) {
+                  tasks.add(Task(titulo: text));
+                } else {
+                  taskToEdit.titulo = text;
+                }
               });
 
               save();
@@ -67,12 +78,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<Map<String, Object>> get lista {
+  List<Task> get lista {
     if (filtro == "pendientes") {
-      return tasks.where((t) => !(t["completada"] as bool)).toList();
+      return tasks.where((t) => !t.completada).toList();
     }
     if (filtro == "completadas") {
-      return tasks.where((t) => (t["completada"] as bool)).toList();
+      return tasks.where((t) => t.completada).toList();
     }
     return tasks;
   }
@@ -100,44 +111,43 @@ class _HomeScreenState extends State<HomeScreen> {
             filtro: filtro,
             onChange: (v) => setState(() => filtro = v),
           ),
+          const SizedBox(height: 8),
           Expanded(
             child: lista.isEmpty
-                ? const Center(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.task_alt, size: 60, color: Colors.grey),
-                          SizedBox(height: 10),
-                          Text(
-                            "No hay tareas",
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.task_alt, size: 60, color: Colors.grey[400]),
+                        const SizedBox(height: 10),
+                        Text(
+                          "No hay tareas en esta sección",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[500],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   )
-                : AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: ListView.builder(
-                      key: ValueKey(lista.length),
-                      itemCount: lista.length,
-                      itemBuilder: (context, index) {
-                        final task = lista[index];
+                : ListView.builder(
+                    itemCount: lista.length,
+                    itemBuilder: (context, index) {
+                      final task = lista[index];
 
-                        return TaskItem(
-                          task: task,
-                          onDelete: () => deleteTask(task),
-                          onEdit: () => showDialogTask(i: tasks.indexOf(task)),
-                          onChanged: (value) {
-                            setState(() {
-                              task["completada"] = value!;
-                            });
-                            save();
-                          },
-                        );
-                      },
-                    ),
+                      return TaskItem(
+                        key: ObjectKey(task),
+                        task: task,
+                        onDelete: () => deleteTask(task),
+                        onEdit: () => showDialogTask(taskToEdit: task),
+                        onChanged: (value) {
+                          setState(() {
+                            task.completada = value!;
+                          });
+                          save();
+                        },
+                      );
+                    },
                   ),
           ),
         ],

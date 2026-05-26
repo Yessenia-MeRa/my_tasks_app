@@ -28,20 +28,23 @@ class MyAppState extends State<MyApp> {
   }
 
   Future<void> _loadTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDark = prefs.getBool("isDark") ?? false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isDark = prefs.getBool("isDark") ?? false;
 
-    setState(() {
-      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
-    });
+      setState(() {
+        _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+      });
+    } catch (_) {}
   }
 
   Future<void> toggleTheme() async {
     final prefs = await SharedPreferences.getInstance();
 
     setState(() {
-      _themeMode =
-          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+      _themeMode = _themeMode == ThemeMode.light
+          ? ThemeMode.dark
+          : ThemeMode.light;
     });
 
     await prefs.setBool("isDark", _themeMode == ThemeMode.dark);
@@ -55,7 +58,6 @@ class MyAppState extends State<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _themeMode,
-
       routerConfig: router,
     );
   }
