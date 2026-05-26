@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:my_tasks_app/modesl/task_model.dart';
+import 'package:my_tasks_app/models/task_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TasksService {

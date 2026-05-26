@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_tasks_app/main.dart';
-import 'package:my_tasks_app/modesl/task_model.dart';
+import 'package:my_tasks_app/models/task_model.dart';
 import 'package:my_tasks_app/services/tasks_service.dart';
 import 'package:my_tasks_app/widgets/task_item.dart';
 import 'package:my_tasks_app/widgets/filter_buttons.dart';
